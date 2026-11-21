@@ -214,7 +214,8 @@ h1 span{color:var(--acc)}
   <h2 class="ph">開発者ログ</h2>
   <p style="margin-bottom:8px">開発者モードでのみ表示（URL末尾に #dev ／ Ctrl+Alt+D）</p>
   <ul class="news" tabindex="0" aria-label="開発者ログ（スクロールできます）">
-    <li><b><span class="tag new">NEW</span>公開に向けてお知らせを初期化</b>プレイヤー向けの「お知らせ」を、従来の更新内容をすべて削除して「tappy を公開しました」の1件のみに変更。これまでの開発履歴はこの開発者ログに残している。</li>
+    <li><b><span class="tag new">NEW</span>テーマ別ベストの正確率の不具合を修正</b>「正確率」列が、そのテーマの全プレイの平均になっていたため、WPM列（ベスト）と食い違っていた（例：345 WPM・99.5% と 280 WPM・96.2% の2回なら、97.9% と表示）。renderExtra() で、最高WPMのプレイ（同点なら正確率が高い方）を選び、その正確率を表示するよう変更。右上「プレイ記録」の平均正確率は従来どおり全プレイの平均。</li>
+    <li><b><span class="tag">変更</span>公開に向けてお知らせを初期化</b>プレイヤー向けの「お知らせ」を、従来の更新内容をすべて削除して「tappy を公開しました」の1件のみに変更。これまでの開発履歴はこの開発者ログに残している。</li>
     <li><b><span class="tag">変更</span>練習画面の整理とミス音の再生方式を見直し</b>制限時間（opt.limit と stat() 内の時間切れ判定、data-lim のボタン群、クリック処理）を撤廃し、時間制限なしに一本化。プレイ画面上部の「ローマ字ガイド」「ひらがな」ボタンと、左カラムの「出題数の目安」を削除（切り替えは左カラムのトグルに一本化、状態は従来どおり opt で共有）。ミス音が聞こえない不具合に対応：AudioContext が suspended のまま再生を予約すると音量エンベロープが過去時刻になり無音になる可能性があったため、resume() 完了後に currentTime 基準で再生する方式に変更。キー押下・クリックで常に unlockAudio() を呼び、音は矩形波 392→262Hz・約0.13秒・ゲイン0.22（旧：180→110Hz・0.07秒・0.06）と聞こえやすく調整。連打の間引きは 60ms。「ミス音：ON」を押したときに確認音を鳴らすようにした。</li>
     <li><b><span class="tag">変更</span>漢字ごとの読み表（SPLIT）を導入</b>複数漢字の語455件を「語=読み|読み|…」形式で保持（例：江戸幕府=え|ど|ばく|ふ）。align() の fill がこの表を引いて、漢字ごとの読み終わり位置を決定。表にない語は従来どおり語全体を打ち終えてから色付け。現在の45文章では、複数漢字の連なり644件がすべて表で細分化されることを確認。文章を追加するときは、新しい語をこの表に足す。</li>
     <li><b><span class="tag">追加</span>ミス音を追加（Web Audio）</b>タイプミス時に、OscillatorNode（矩形波 180→110Hz、約70ms、最大ゲイン0.06）で短いビープ音を生成。音声ファイルは不使用。AudioContextは初回のミス時に遅延生成し、suspendedならresume。連打時は40ms未満の連続発音を抜いて、重なりや割れを防止。練習設定「サウンド」のトグル（opt.sound、初期ON・保存あり）を追加。スタート前の案内文を「…（Esc でキャンセル・終了します）」に変更（Escの挙動自体は変更なし）。</li>
@@ -570,7 +571,7 @@ const rankNo=w=>w<100?1:w<200?2:w<300?3:w<400?4:5;
 const pad=n=>String(n).padStart(2,"0");
 function renderExtra(){
   $("#tList").innerHTML='<div class="tr t h"><span>テーマ</span><span>ランク</span><span class="r">WPM</span><span class="r">正確率</span><span class="r">回数</span></div>'+THEMES.map(t=>{
-    const rs=recs.filter(r=>r.n===t.name),n=rs.length,b=n?Math.max(...rs.map(r=>r.w)):0,a=n?rs.reduce((s,r)=>s+r.a,0)/n:0;
+    const rs=recs.filter(r=>r.n===t.name),n=rs.length,top=n?rs.reduce((m,r)=>(r.w>m.w||(r.w===m.w&&r.a>m.a))?r:m):null,b=top?top.w:0,a=top?top.a:0; /* 正確率は「平均」ではなく、ベスト（最高WPM）を出したプレイ時の値 */
     return `<div class="tr t"><span class="nm">${t.name}</span><span><span class="bdg${n?" rk"+rankNo(b):""}">${rank(b)}</span></span><span class="r">${n?b:"–"}</span><span class="r">${n?a.toFixed(1)+"%":"–"}</span><span class="r">${n}</span></div>`;
   }).join("");
   $("#hList").innerHTML=recs.length?'<div class="tr hh h"><span>日時</span><span>テーマ</span><span class="r">WPM</span><span class="r">正確率</span><span class="r">打鍵</span></div>'+recs.slice(-5).reverse().map(r=>{
